@@ -1,0 +1,2 @@
+Checks: 'clang-analyzer-*, clang-analyzer-core.*, cppcoreguidelines-*, performance-*'
+WarningsAsErrors: true
