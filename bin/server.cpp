@@ -9,15 +9,37 @@
 #include <format>
 #include <sys/stat.h>
 #include <thread>
+#include <unistd.h>
 #include <unordered_map>
 
 #include "common.h"
 
 constexpr const char* PIPE_PATH = "/tmp/everest_pipe";
 constexpr const size_t CMD_MAX_LENGTH = 127;
+constexpr const size_t PIPE_POLL_PERIOD_MS = 200;
 
-int main()
+int main(int argc, char** argv)
 {
+    bool no_root = false;
+    if(argc > 1)
+    {
+        const std::span<char*> sargv(argv, argc);
+        if(std::string{sargv[1]} == "--no-root")
+        {
+            no_root = true;
+        }
+        else
+        {
+            std::cout << "Unknown argument: " << sargv[1] << std::endl;
+        }
+    }
+
+    if(!no_root && geteuid() != 0)
+    {
+        std::cerr << "Everest server should be run as root, unless --no-root is supplied" << std::endl;
+        return -1;
+    }
+
     const std::optional<std::string> command_text = ien::read_file_text("commands.txt");
     if(!command_text)
     {
@@ -32,7 +54,17 @@ int main()
 
     if(std::filesystem::exists(PIPE_PATH))
     {
-        std::filesystem::remove(PIPE_PATH);
+        try
+        {
+            std::filesystem::remove(PIPE_PATH);
+        }
+        catch(std::exception& ex)
+        {
+            std::cerr << "Unable to remove previous named pipe at: " << PIPE_PATH << std::endl
+                << "Check if you have permissions to remove it" << std::endl
+                << "Ex: " << ex.what() << std::endl;
+            return -1;
+        }
     }
 
     constexpr int PIPE_PERMISSIONS = 0777;
@@ -52,7 +84,7 @@ int main()
         ssize_t bytes_read = read(fd, buff.data(), CMD_MAX_LENGTH);
         if(bytes_read <= 0)
         {
-            std::this_thread::sleep_for(std::chrono::milliseconds(100));
+            std::this_thread::sleep_for(std::chrono::milliseconds(PIPE_POLL_PERIOD_MS));
             continue;
         }
 
@@ -72,10 +104,8 @@ int main()
         }
         else
         {
-            cmd += partial; 
-            continue;
+            cmd += partial;
         }
-        continue;
     }
 
     return 0;
