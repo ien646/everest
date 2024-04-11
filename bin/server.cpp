@@ -40,7 +40,7 @@ int main(int argc, char** argv)
         return -1;
     }
 
-    const std::optional<std::string> command_text = ien::read_file_text("commands.txt");
+    const std::optional<std::string> command_text = ien::read_file_text("/etc/everest/commands.txt");
     if(!command_text)
     {
         std::cerr << "commands.txt file not found!" << std::endl;
